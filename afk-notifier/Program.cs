@@ -4,6 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
+using DotNetEnv;
+using System.Net;
+using System.Net.Mail;
 
 class Program
 {
@@ -21,6 +24,8 @@ class Program
 
     static void Main()
     {
+        Env.Load();
+
         Directory.CreateDirectory(PastaLogs);
 
         Console.WriteLine("AFK Notifier iniciado.");
@@ -43,6 +48,20 @@ class Program
 
             Thread.Sleep(IntervaloVerificacao);
         }
+    }
+
+    private static string ObterVariavelObrigatoria(string nome)
+    {
+        string? valor = Environment.GetEnvironmentVariable(nome);
+
+        if (string.IsNullOrWhiteSpace(valor))
+        {
+            throw new InvalidOperationException(
+                $"A variável de ambiente '{nome}' não foi configurada."
+            );
+        }
+
+        return valor;
     }
 
     private static void VerificarInatividade(TimeSpan tempoInativo)
@@ -106,6 +125,27 @@ class Program
                 writer.WriteLine($"{processo.ProcessName} | PID: {processo.Id} | StartTime indisponível");
             }
         }
+    }
+
+    static void EnviarEmail(string assunto, string corpo)
+    {
+        string smtpHost = ObterVariavelObrigatoria("AFK_SMTP_HOST");
+        int smtpPort = int.Parse(ObterVariavelObrigatoria("AFK_SMTP_PORT"));
+        string smtpUser = ObterVariavelObrigatoria("AFK_SMTP_USER");
+        string smtpPass = ObterVariavelObrigatoria("AFK_SMTP_PASS");
+        string destinatario = ObterVariavelObrigatoria("AFK_EMAIL_TO");
+
+        using SmtpClient smtp = new SmtpClient(smtpHost, smtpPort);
+        smtp.EnableSsl = true;
+        smtp.Credentials = new NetworkCredential(smtpUser, smtpPass);
+
+        using MailMessage mensagem = new MailMessage();
+        mensagem.From = new MailAddress(smtpUser);
+        mensagem.To.Add(destinatario);
+        mensagem.Subject = assunto;
+        mensagem.Body = corpo;
+
+        smtp.Send(mensagem);
     }
 
     private static TimeSpan ObterTempoInatividade()
