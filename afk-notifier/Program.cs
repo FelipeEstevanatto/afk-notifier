@@ -10,145 +10,145 @@ using System.Net.Mail;
 
 class Program
 {
-    private static readonly TimeSpan LimiteInatividade = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan IntervaloVerificacao = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan IntervaloLogProcessos = TimeSpan.FromMinutes(1);
+    private static readonly TimeSpan InactivityLimit = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ProcessLogInterval = TimeSpan.FromMinutes(1);
 
-    private static bool estavaAfk = false;
-    private static DateTime? inicioAfk = null;
-    private static DateTime ultimoLogProcessos = DateTime.MinValue;
+    private static bool wasAfk = false;
+    private static DateTime? afkStart = null;
+    private static DateTime lastProcessLog = DateTime.MinValue;
 
-    private const string PastaLogs = "logs";
-    private const string ArquivoAfkLog = "logs/afk-log.txt";
-    private const string ArquivoProcessosLog = "logs/processos-log.txt";
+    private const string LogsFolder = "logs";
+    private const string AfkLogFile = "logs/afk-log.txt";
+    private const string ProcessLogFile = "logs/processos-log.txt";
 
     static void Main()
     {
         Env.Load();
 
-        Directory.CreateDirectory(PastaLogs);
+        Directory.CreateDirectory(LogsFolder);
 
         Console.WriteLine("AFK Notifier iniciado.");
-        Console.WriteLine($"Limite de inatividade: {LimiteInatividade.TotalSeconds} segundos.");
+        Console.WriteLine($"Limite de inatividade: {InactivityLimit.TotalSeconds} segundos.");
         Console.WriteLine("Pressione Ctrl + C para encerrar.");
 
-        File.AppendAllText(ArquivoAfkLog, $"\n=== Sessão iniciada em {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===\n");
+        File.AppendAllText(AfkLogFile, $"\n=== Sessão iniciada em {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===\n");
 
         while (true)
         {
-            TimeSpan tempoInativo = ObterTempoInatividade();
+            TimeSpan inactiveTime = GetInactivityTime();
 
             Console.Clear();
             Console.WriteLine("AFK Notifier em execução");
-            Console.WriteLine($"Tempo inativo atual: {tempoInativo.TotalSeconds:F0} segundos");
-            Console.WriteLine($"Limite configurado: {LimiteInatividade.TotalSeconds:F0} segundos");
+            Console.WriteLine($"Tempo inativo atual: {inactiveTime.TotalSeconds:F0} segundos");
+            Console.WriteLine($"Limite configurado: {InactivityLimit.TotalSeconds:F0} segundos");
 
-            VerificarInatividade(tempoInativo);
-            RegistrarProcessosPeriodicamente();
+            CheckInactivity(inactiveTime);
+            LogProcessesPeriodically();
 
-            Thread.Sleep(IntervaloVerificacao);
+            Thread.Sleep(CheckInterval);
         }
     }
 
-    private static string ObterVariavelObrigatoria(string nome)
+    private static string GetRequiredVariable(string name)
     {
-        string? valor = Environment.GetEnvironmentVariable(nome);
+        string? value = Environment.GetEnvironmentVariable(name);
 
-        if (string.IsNullOrWhiteSpace(valor))
+        if (string.IsNullOrWhiteSpace(value))
         {
             throw new InvalidOperationException(
-                $"A variável de ambiente '{nome}' não foi configurada."
+                $"A variável de ambiente '{name}' não foi configurada."
             );
         }
 
-        return valor;
+        return value;
     }
 
-    private static void VerificarInatividade(TimeSpan tempoInativo)
+    private static void CheckInactivity(TimeSpan inactiveTime)
     {
-        if (tempoInativo >= LimiteInatividade && !estavaAfk)
+        if (inactiveTime >= InactivityLimit && !wasAfk)
         {
-            estavaAfk = true;
-            inicioAfk = DateTime.Now.Subtract(tempoInativo);
+            wasAfk = true;
+            afkStart = DateTime.Now.Subtract(inactiveTime);
 
-            string mensagem = $"Usuário ficou inativo desde {inicioAfk:yyyy-MM-dd HH:mm:ss}.";
+            string message = $"Usuário ficou inativo desde {afkStart:yyyy-MM-dd HH:mm:ss}.";
             Console.Beep();
-            Console.WriteLine(mensagem);
+            Console.WriteLine(message);
 
-            File.AppendAllText(ArquivoAfkLog,
-                $"[INÍCIO AFK] {inicioAfk:yyyy-MM-dd HH:mm:ss} | Tempo detectado: {tempoInativo.TotalSeconds:F0}s\n");
+            File.AppendAllText(AfkLogFile,
+                $"[INÍCIO AFK] {afkStart:yyyy-MM-dd HH:mm:ss} | Tempo detectado: {inactiveTime.TotalSeconds:F0}s\n");
 
-            // Etapa futura:
-            // EnviarEmail("Alerta AFK", mensagem);
+            // Future step:
+            // SendEmail("Alerta AFK", message);
         }
 
-        if (tempoInativo < LimiteInatividade && estavaAfk)
+        if (inactiveTime < InactivityLimit && wasAfk)
         {
-            DateTime fimAfk = DateTime.Now;
-            TimeSpan duracao = fimAfk - inicioAfk!.Value;
+            DateTime afkEnd = DateTime.Now;
+            TimeSpan duration = afkEnd - afkStart!.Value;
 
-            File.AppendAllText(ArquivoAfkLog,
-                $"[FIM AFK] {fimAfk:yyyy-MM-dd HH:mm:ss} | Duração aproximada: {duracao.TotalSeconds:F0}s\n");
+            File.AppendAllText(AfkLogFile,
+                $"[FIM AFK] {afkEnd:yyyy-MM-dd HH:mm:ss} | Duração aproximada: {duration.TotalSeconds:F0}s\n");
 
-            estavaAfk = false;
-            inicioAfk = null;
+            wasAfk = false;
+            afkStart = null;
         }
     }
 
-    private static void RegistrarProcessosPeriodicamente()
+    private static void LogProcessesPeriodically()
     {
-        if (DateTime.Now - ultimoLogProcessos < IntervaloLogProcessos)
+        if (DateTime.Now - lastProcessLog < ProcessLogInterval)
             return;
 
-        ultimoLogProcessos = DateTime.Now;
+        lastProcessLog = DateTime.Now;
 
-        var processos = Process.GetProcesses()
+        var processes = Process.GetProcesses()
             .OrderBy(p => p.ProcessName)
             .ToList();
 
-        using StreamWriter writer = new StreamWriter(ArquivoProcessosLog, append: true);
+        using StreamWriter writer = new StreamWriter(ProcessLogFile, append: true);
 
         writer.WriteLine($"\n=== Processos abertos em {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===");
 
-        foreach (var processo in processos)
+        foreach (var process in processes)
         {
             try
             {
-                string nome = processo.ProcessName;
-                DateTime inicio = processo.StartTime;
+                string name = process.ProcessName;
+                DateTime start = process.StartTime;
 
-                writer.WriteLine($"{nome} | PID: {processo.Id} | Aberto desde: {inicio:yyyy-MM-dd HH:mm:ss}");
+                writer.WriteLine($"{name} | PID: {process.Id} | Aberto desde: {start:yyyy-MM-dd HH:mm:ss}");
             }
             catch
             {
-                // Alguns processos do sistema não permitem acesso ao StartTime.
-                writer.WriteLine($"{processo.ProcessName} | PID: {processo.Id} | StartTime indisponível");
+                // Some system processes do not allow access to StartTime.
+                writer.WriteLine($"{process.ProcessName} | PID: {process.Id} | StartTime indisponível");
             }
         }
     }
 
-    static void EnviarEmail(string assunto, string corpo)
+    static void SendEmail(string subject, string body)
     {
-        string smtpHost = ObterVariavelObrigatoria("AFK_SMTP_HOST");
-        int smtpPort = int.Parse(ObterVariavelObrigatoria("AFK_SMTP_PORT"));
-        string smtpUser = ObterVariavelObrigatoria("AFK_SMTP_USER");
-        string smtpPass = ObterVariavelObrigatoria("AFK_SMTP_PASS");
-        string destinatario = ObterVariavelObrigatoria("AFK_EMAIL_TO");
+        string smtpHost = GetRequiredVariable("AFK_SMTP_HOST");
+        int smtpPort = int.Parse(GetRequiredVariable("AFK_SMTP_PORT"));
+        string smtpUser = GetRequiredVariable("AFK_SMTP_USER");
+        string smtpPass = GetRequiredVariable("AFK_SMTP_PASS");
+        string recipient = GetRequiredVariable("AFK_EMAIL_TO");
 
         using SmtpClient smtp = new SmtpClient(smtpHost, smtpPort);
         smtp.EnableSsl = true;
         smtp.Credentials = new NetworkCredential(smtpUser, smtpPass);
 
-        using MailMessage mensagem = new MailMessage();
-        mensagem.From = new MailAddress(smtpUser);
-        mensagem.To.Add(destinatario);
-        mensagem.Subject = assunto;
-        mensagem.Body = corpo;
+        using MailMessage message = new MailMessage();
+        message.From = new MailAddress(smtpUser);
+        message.To.Add(recipient);
+        message.Subject = subject;
+        message.Body = body;
 
-        smtp.Send(mensagem);
+        smtp.Send(message);
     }
 
-    private static TimeSpan ObterTempoInatividade()
+    private static TimeSpan GetInactivityTime()
     {
         LASTINPUTINFO lastInputInfo = new LASTINPUTINFO();
         lastInputInfo.cbSize = (uint)Marshal.SizeOf(lastInputInfo);
@@ -156,10 +156,10 @@ class Program
         if (!GetLastInputInfo(ref lastInputInfo))
             return TimeSpan.Zero;
 
-        uint tickAtual = GetTickCount();
-        uint tempoInativoMs = tickAtual - lastInputInfo.dwTime;
+        uint currentTick = GetTickCount();
+        uint inactiveTimeMs = currentTick - lastInputInfo.dwTime;
 
-        return TimeSpan.FromMilliseconds(tempoInativoMs);
+        return TimeSpan.FromMilliseconds(inactiveTimeMs);
     }
 
     [StructLayout(LayoutKind.Sequential)]
