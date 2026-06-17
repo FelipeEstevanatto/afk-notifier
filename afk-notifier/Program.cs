@@ -1,44 +1,60 @@
-﻿using System;
+using System;
+using System.IO;
 using System.Threading;
-using DotNetEnv;
 
-namespace AfkNotifier;
-
-class Program
+namespace AfkNotifier
 {
-    private static readonly TimeSpan InactivityLimit = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan ProcessLogInterval = TimeSpan.FromMinutes(1);
-
-    static void Main()
+    internal static class Program
     {
-        Env.Load();
-
-        LogService.EnsureLogDirectory();
-
-        Console.WriteLine("AFK Notifier iniciado.");
-        Console.WriteLine($"Limite de inatividade: {InactivityLimit.TotalSeconds} segundos.");
-        Console.WriteLine("Pressione Ctrl + C para encerrar.");
-
-        LogService.AppendAfkLog($"\n=== Sessão iniciada em {DateTime.Now:yyyy-MM-dd HH:mm:ss} ===\n");
-
-        IdleMonitor idleMonitor = new IdleMonitor();
-        AfkStateTracker afkStateTracker = new AfkStateTracker(InactivityLimit);
-        ProcessLogger processLogger = new ProcessLogger(ProcessLogInterval);
-
-        while (true)
+        [STAThread]
+        static void Main()
         {
-            TimeSpan inactiveTime = idleMonitor.GetInactivityTime();
+            // Carrega as variáveis do ficheiro .env
+            EnvLoader.Load(".env");
 
-            Console.Clear();
-            Console.WriteLine("AFK Notifier em execução");
-            Console.WriteLine($"Tempo inativo atual: {inactiveTime.TotalSeconds:F0} segundos");
-            Console.WriteLine($"Limite configurado: {InactivityLimit.TotalSeconds:F0} segundos");
+            // Inicia os serviços
+            var logService = new LogService();
+            var nativeMethods = new NativeMethods();
+            var idleMonitor = new IdleMonitor(nativeMethods, logService);
+            var processLogger = new ProcessLogger(logService);
+            var emailNotifier = new EmailNotifier(logService);
+            var stateTracker = new AfkStateTracker(idleMonitor, emailNotifier, processLogger, logService);
 
-            afkStateTracker.Check(inactiveTime);
-            processLogger.LogPeriodically();
+            stateTracker.Start();
+            
+            Thread.Sleep(Timeout.Infinite);
+        }
+    }
 
-            Thread.Sleep(CheckInterval);
+    internal static class EnvLoader
+    {
+        public static void Load(string fileName)
+        {
+            string basePath = AppDomain.CurrentDomain.BaseDirectory;
+            string envPath = Path.Combine(basePath, fileName);
+
+            if (!File.Exists(envPath)) return; // Se não existir, falha silenciosamente
+
+            foreach (string line in File.ReadAllLines(envPath))
+            {
+                string trimmed = line.Trim();
+                if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#")) continue;
+
+                int sep = trimmed.IndexOf('=');
+                if (sep < 1) continue;
+
+                string key = trimmed.Substring(0, sep).Trim();
+                string value = trimmed.Substring(sep + 1).Trim();
+
+                if (value.Length >= 2 &&
+                    ((value.StartsWith("\"") && value.EndsWith("\"")) ||
+                     (value.StartsWith("'") && value.EndsWith("'"))))
+                {
+                    value = value.Substring(1, value.Length - 2);
+                }
+
+                Environment.SetEnvironmentVariable(key, value);
+            }
         }
     }
 }

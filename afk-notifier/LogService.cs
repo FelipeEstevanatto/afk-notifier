@@ -1,25 +1,31 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 
-namespace AfkNotifier;
-
-internal static class LogService
+namespace AfkNotifier
 {
-    private const string LogsFolder = "logs";
-    private const string AfkLogFile = "logs/afk-log.txt";
-    private const string ProcessLogFile = "logs/processos-log.txt";
-
-    public static void EnsureLogDirectory()
+    internal class LogService
     {
-        Directory.CreateDirectory(LogsFolder);
-    }
+        private const string LogsFolder = "logs";
+        private const string AppLogFile = "logs/app-log.txt";
 
-    public static void AppendAfkLog(string text)
-    {
-        File.AppendAllText(AfkLogFile, text);
-    }
+        public LogService()
+        {
+            Directory.CreateDirectory(LogsFolder);
+        }
 
-    public static StreamWriter CreateProcessLogWriter()
-    {
-        return new StreamWriter(ProcessLogFile, append: true);
+        public void Info(string message) => WriteLog("INFO", message);
+        public void Warn(string message) => WriteLog("WARN", message);
+        public void Error(string message) => WriteLog("ERROR", message);
+
+        private void WriteLog(string level, string message)
+        {
+            string logEntry = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [{level}] {message}";
+
+            // Grava no ficheiro
+            File.AppendAllText(AppLogFile, logEntry + Environment.NewLine);
+
+            // Imprime na consola (útil se executar com --show-console)
+            Console.WriteLine(logEntry);
+        }
     }
 }

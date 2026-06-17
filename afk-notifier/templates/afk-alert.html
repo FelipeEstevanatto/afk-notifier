@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f4f5f7;
+            margin: 0;
+            padding: 32px 16px;
+            color: #1a1a2e;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            max-width: 600px;
+            margin: 0 auto;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,.08);
+        }
+
+        .header {
+            background: #16213e;
+            padding: 28px 32px;
+        }
+
+            .header h1 {
+                color: #e94560;
+                margin: 0 0 4px;
+                font-size: 22px;
+                font-weight: 700;
+            }
+
+            .header p {
+                color: #8892b0;
+                margin: 0;
+                font-size: 13px;
+            }
+
+        .badge {
+            display: inline-block;
+            background: #e94560;
+            color: #fff;
+            border-radius: 6px;
+            padding: 2px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: .5px;
+            margin-bottom: 10px;
+        }
+
+        .body {
+            padding: 28px 32px;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .kpi {
+            background: #f8f9fc;
+            border-radius: 8px;
+            padding: 14px 16px;
+            border: 1px solid #e8eaf0;
+        }
+
+        .kpi-label {
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            margin-bottom: 4px;
+        }
+
+        .kpi-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+
+        h2 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0 0 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e8eaf0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            background: #f8f9fc;
+            text-align: left;
+            padding: 8px 12px;
+            font-weight: 600;
+            color: #6b7280;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        td {
+            padding: 9px 12px;
+            border-bottom: 1px solid #f0f1f5;
+            color: #374151;
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .proc-icon {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #0f62fe;
+            margin-right: 8px;
+        }
+
+        .footer {
+            background: #f8f9fc;
+            padding: 16px 32px;
+            text-align: center;
+            font-size: 11px;
+            color: #9ca3af;
+            border-top: 1px solid #e8eaf0;
+        }
+
+        a {
+            color: #0f62fe;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <span class="badge">⚠ AUSÊNCIA DETECTADA</span>
+            <h1>Usuário AFK</h1>
+            <p>Notificação automática gerada em {{DetectedAt}}</p>
+        </div>
+
+        <div class="body">
+            <div class="kpi-grid">
+                <div class="kpi">
+                    <div class="kpi-label">Duração idle</div>
+                    <div class="kpi-value">{{Duration}}</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-label">Máquina</div>
+                    <div class="kpi-value">{{MachineName}}</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi-label">Usuário</div>
+                    <div class="kpi-value">{{UserName}}</div>
+                </div>
+            </div>
+
+            <h2>Última janela ativa</h2>
+            <table>
+                <tr>
+                    <th>Processo</th>
+                    <th>Título da janela</th>
+                    <th>Executável</th>
+                </tr>
+                <tr>
+                    <td><span class="proc-icon"></span>{{LastForegroundProcess}}</td>
+                    <td>{{LastWindowTitle}}</td>
+                    <td style="font-family:monospace;font-size:12px;">{{LastExecutablePath}}</td>
+                </tr>
+            </table>
+
+            <br>
+            <h2>Processos em execução (top {{TopCount}})</h2>
+            <table>
+                <tr>
+                    <th>#</th>
+                    <th>Processo</th>
+                    <th>Descrição</th>
+                    <th>CPU %</th>
+                    <th>RAM (MB)</th>
+                </tr>
+                {{TopProcesses}}
+            </table>
+        </div>
+
+        <div class="footer">
+            Gerado por <strong>AfkNotifier</strong> &nbsp;·&nbsp;
+            {{Year}} &nbsp;·&nbsp;
+            <a href="https://github.com/FelipeEstevanatto/afk-notifier">GitHub</a>
+        </div>
+    </div>
+</body>
+</html>
