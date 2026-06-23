@@ -79,6 +79,8 @@ namespace AfkNotifier
                     LastForegroundProcess = context.ForegroundProcessName,
                     LastWindowTitle = context.ForegroundWindowTitle,
                     LastExecutablePath = context.ForegroundExecutablePath,
+                    LastCpuPercent = context.ForegroundCpuPercent,
+                    LastMemoryMb = context.ForegroundMemoryMb,
                     TopProcesses = context.TopProcesses
                 };
 

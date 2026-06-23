@@ -36,14 +36,32 @@ namespace AfkNotifier
         {
             var ctx = new SessionContext();
 
-            // 1. Janela em primeiro plano
+            // 1. Janela em primeiro plano (guarda também o PID)
             ctx = CaptureForegrondWindow(ctx);
 
-            // 2. Lista de processos
-            ctx.TopProcesses = CaptureTopProcesses(topN);
+            // 2. Varre TODOS os processos (com CPU/RAM) uma única vez
+            ProcessInfo[] all = CaptureAllProcesses();
+
+            // 3. Tabela: top N por RAM
+            ctx.TopProcesses = all
+                .OrderByDescending(p => p.MemoryMb)
+                .Take(topN)
+                .ToArray();
+
+            // 4. Métricas do processo em foco (localiza pelo PID na varredura)
+            if (ctx.ForegroundPid > 0)
+            {
+                var fg = all.FirstOrDefault(p => p.Id == ctx.ForegroundPid);
+                if (fg != null)
+                {
+                    ctx.ForegroundCpuPercent = fg.CpuPercent;
+                    ctx.ForegroundMemoryMb = fg.MemoryMb;
+                }
+            }
 
             _log.Info($"Contexto capturado: janela='{ctx.ForegroundWindowTitle}' " +
                       $"processo={ctx.ForegroundProcessName} " +
+                      $"cpu={ctx.ForegroundCpuPercent:F1}% ram={ctx.ForegroundMemoryMb:F0}MB " +
                       $"total_procs={ctx.TopProcesses.Length}");
 
             return ctx;
@@ -63,6 +81,7 @@ namespace AfkNotifier
 
                 // PID → processo
                 GetWindowThreadProcessId(hwnd, out uint pid);
+                ctx.ForegroundPid = (int)pid;
                 using var proc = Process.GetProcessById((int)pid);
 
                 ctx.ForegroundProcessName = proc.ProcessName;
@@ -87,7 +106,7 @@ namespace AfkNotifier
             return ctx;
         }
 
-        private ProcessInfo[] CaptureTopProcesses(int topN)
+        private ProcessInfo[] CaptureAllProcesses()
         {
             var allProcs = Process.GetProcesses();
 
@@ -136,6 +155,7 @@ namespace AfkNotifier
 
                         results.Add(new ProcessInfo
                         {
+                            Id          = proc.Id,
                             Name        = proc.ProcessName,
                             Description = iconLabel,
                             MemoryMb    = memMb,
@@ -146,11 +166,7 @@ namespace AfkNotifier
                     catch { /* Processos protegidos (System, smss, etc.) — ignora */ }
                 }
 
-                // Ordena por RAM decrescente e retorna os top N
-                return results
-                    .OrderByDescending(p => p.MemoryMb)
-                    .Take(topN)
-                    .ToArray();
+                return results.ToArray();
             }
             finally
             {
@@ -282,10 +298,13 @@ namespace AfkNotifier
 
     internal class SessionContext
     {
+        public int    ForegroundPid                { get; set; } = -1;
         public string ForegroundProcessName        { get; set; } = "";
         public string ForegroundWindowTitle        { get; set; } = "";
         public string ForegroundExecutablePath     { get; set; } = "";
         public string ForegroundProcessDescription { get; set; } = "";
+        public double ForegroundCpuPercent         { get; set; }
+        public double ForegroundMemoryMb           { get; set; }
         public ProcessInfo[] TopProcesses          { get; set; } = Array.Empty<ProcessInfo>();
     }
 }

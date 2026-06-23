@@ -123,9 +123,11 @@ namespace AfkNotifier
                 .Replace("{{MachineName}}", WebEncode(snap.MachineName))
                 .Replace("{{MachineModel}}", WebEncode(string.IsNullOrEmpty(snap.MachineModel) ? "—" : snap.MachineModel))
                 .Replace("{{UserName}}", WebEncode(snap.UserName))
-                .Replace("{{LastForegroundProcess}}", snap.LastForegroundProcess)
-                .Replace("{{LastWindowTitle}}", snap.LastWindowTitle)
-                .Replace("{{LastExecutablePath}}", snap.LastExecutablePath)
+                .Replace("{{LastForegroundProcess}}", WebEncode(snap.LastForegroundProcess))
+                .Replace("{{LastWindowTitle}}", WebEncode(snap.LastWindowTitle))
+                .Replace("{{LastExecutablePath}}", WebEncode(snap.LastExecutablePath))
+                .Replace("{{LastCpuPercent}}", snap.LastCpuPercent.ToString("F1"))
+                .Replace("{{LastMemoryMb}}", snap.LastMemoryMb.ToString("F0"))
                 .Replace("{{TopCount}}", snap.TopProcesses.Length.ToString())
                 .Replace("{{TopProcesses}}", rows)
                 .Replace("{{Year}}", snap.DetectedAt.ToString("yyyy"));
@@ -203,11 +205,14 @@ namespace AfkNotifier
         public string LastForegroundProcess { get; set; } = "";
         public string LastWindowTitle { get; set; } = "";
         public string LastExecutablePath { get; set; } = "";
+        public double LastCpuPercent { get; set; }
+        public double LastMemoryMb { get; set; }
         public ProcessInfo[] TopProcesses { get; set; } = Array.Empty<ProcessInfo>();
     }
 
     internal class ProcessInfo
     {
+        public int Id { get; set; }
         public string Name { get; set; } = "";
         public string Description { get; set; } = "";
         public double CpuPercent { get; set; }

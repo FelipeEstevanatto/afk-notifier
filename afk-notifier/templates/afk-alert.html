@@ -192,11 +192,15 @@
                     <tr>
                         <th>Processo</th>
                         <th>Título da janela</th>
+                        <th>CPU %</th>
+                        <th>RAM (MB)</th>
                         <th>Executável</th>
                     </tr>
                     <tr>
                         <td><span class="proc-icon"></span>{{LastForegroundProcess}}</td>
                         <td>{{LastWindowTitle}}</td>
+                        <td style="text-align:right;">{{LastCpuPercent}}</td>
+                        <td style="text-align:right;">{{LastMemoryMb}}</td>
                         <td style="font-family:monospace;font-size:12px;">{{LastExecutablePath}}</td>
                     </tr>
                 </table>
