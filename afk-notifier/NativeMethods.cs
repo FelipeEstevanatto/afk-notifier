@@ -55,6 +55,43 @@ namespace AfkNotifier
         [DllImport("kernel32.dll")]
         internal static extern uint GetCurrentThreadId();
 
+        // ── Memória física do sistema (kernel32.dll) ──────────────────────────
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct MEMORYSTATUSEX
+        {
+            public uint dwLength;
+            public uint dwMemoryLoad;        // % de memória física em uso
+            public ulong ullTotalPhys;       // RAM física total (bytes)
+            public ulong ullAvailPhys;       // RAM física disponível (bytes)
+            public ulong ullTotalPageFile;
+            public ulong ullAvailPageFile;
+            public ulong ullTotalVirtual;
+            public ulong ullAvailVirtual;
+            public ulong ullAvailExtendedVirtual;
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
+        // ── Estado de energia / bateria (kernel32.dll) ────────────────────────
+
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct SYSTEM_POWER_STATUS
+        {
+            public byte ACLineStatus;        // 0 = na bateria, 1 = na tomada, 255 = desconhecido
+            public byte BatteryFlag;         // 1 alta, 2 baixa, 4 crítica, 8 carregando, 128 sem bateria, 255 desconhecido
+            public byte BatteryLifePercent;  // 0-100, 255 = desconhecido
+            public byte SystemStatusFlag;
+            public int BatteryLifeTime;      // segundos restantes, -1 = desconhecido
+            public int BatteryFullLifeTime;
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS lpSystemPowerStatus);
+
         /// <summary>Traz a janela <paramref name="hWnd"/> para o primeiro plano de forma confiável.</summary>
         internal static void ForceForeground(IntPtr hWnd)
         {

@@ -130,6 +130,11 @@ namespace AfkNotifier
                 .Replace("{{LastMemoryMb}}", snap.LastMemoryMb.ToString("F0"))
                 .Replace("{{TopCount}}", snap.TopProcesses.Length.ToString())
                 .Replace("{{TopProcesses}}", rows)
+                .Replace("{{RamUsedGb}}", snap.Memory.UsedGb.ToString("F1"))
+                .Replace("{{RamTotalGb}}", snap.Memory.TotalGb.ToString("F1"))
+                .Replace("{{RamPercent}}", snap.Memory.PercentUsed.ToString())
+                .Replace("{{BatteryPercent}}", snap.Power.BatteryPercent >= 0 ? $"{snap.Power.BatteryPercent}%" : "—")
+                .Replace("{{PowerDescription}}", WebEncode(snap.Power.Description))
                 .Replace("{{Year}}", snap.DetectedAt.ToString("yyyy"));
         }
 
@@ -199,6 +204,8 @@ namespace AfkNotifier
         public string MachineName { get; set; } = Environment.MachineName;
         public string MachineModel { get; set; } = SystemInfo.GetMachineModel();
         public string UserName { get; set; } = Environment.UserName;
+        public MemoryStatus Memory { get; set; } = SystemInfo.GetMemoryStatus();
+        public PowerStatus Power { get; set; } = SystemInfo.GetPowerStatus();
         public DateTime DetectedAt { get; set; } = DateTime.Now;
         public DateTime ReturnedAt { get; set; }
         public TimeSpan IdleDuration { get; set; }
