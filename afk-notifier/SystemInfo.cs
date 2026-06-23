@@ -11,14 +11,19 @@ namespace AfkNotifier
     /// </summary>
     internal static class SystemInfo
     {
+        // O modelo do equipamento não muda em tempo de execução — lê uma vez só.
+        private static string? _cachedModel;
+
         public static string GetMachineModel()
         {
+            if (_cachedModel != null) return _cachedModel;
+
             try
             {
                 using RegistryKey? key = Registry.LocalMachine.OpenSubKey(
                     @"HARDWARE\DESCRIPTION\System\BIOS");
 
-                if (key == null) return "";
+                if (key == null) return _cachedModel = "";
 
                 string manufacturer = Read(key, "SystemManufacturer");
                 string product = Read(key, "SystemProductName");
@@ -33,11 +38,11 @@ namespace AfkNotifier
                     model = string.IsNullOrEmpty(model) ? manufacturer : $"{manufacturer} {model}";
                 }
 
-                return model.Trim();
+                return _cachedModel = model.Trim();
             }
             catch
             {
-                return ""; // Em caso de falha, não quebra o relatório
+                return _cachedModel = ""; // Em caso de falha, não quebra o relatório
             }
         }
 

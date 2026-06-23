@@ -39,10 +39,10 @@ namespace AfkNotifier
             // 1. Janela em primeiro plano (guarda também o PID)
             ctx = CaptureForegrondWindow(ctx);
 
-            // 2. Varre TODOS os processos (com CPU/RAM) uma única vez
-            ProcessInfo[] all = CaptureAllProcesses();
+            // 2. Varre TODOS os processos (campos baratos) e enriquece só o top N
+            ProcessInfo[] all = CaptureAllProcesses(topN);
 
-            // 3. Tabela: top N por RAM
+            // 3. Tabela: top N por RAM (já enriquecidos com exe/descrição)
             ctx.TopProcesses = all
                 .OrderByDescending(p => p.MemoryMb)
                 .Take(topN)
@@ -106,7 +106,7 @@ namespace AfkNotifier
             return ctx;
         }
 
-        private ProcessInfo[] CaptureAllProcesses()
+        private ProcessInfo[] CaptureAllProcesses(int topN)
         {
             var allProcs = Process.GetProcesses();
 
@@ -123,9 +123,12 @@ namespace AfkNotifier
                 // Espera curta entre as duas amostras
                 Thread.Sleep(CpuSampleMs);
 
-                // ── 2ª amostra: calcula o delta (uso real de CPU no intervalo) ───
+                // ── 2ª amostra: apenas campos BARATOS (CPU%, RAM, PID, nome) ─────
+                // Os campos caros (caminho do exe, descrição do ficheiro, hora de
+                // início) são adiados para depois, só para os top N exibidos.
                 int cores = Environment.ProcessorCount;
-                var results = new List<ProcessInfo>();
+                var results = new List<ProcessInfo>(allProcs.Length);
+                var byId = new Dictionary<int, Process>(allProcs.Length);
 
                 foreach (var proc in allProcs)
                 {
@@ -149,21 +152,27 @@ namespace AfkNotifier
                             }
                         }
 
-                        string exePath   = SafeGetExecutablePath(proc);
-                        string desc      = GetFileDescription(exePath);
-                        string iconLabel = ResolveProcessLabel(proc.ProcessName, desc);
-
                         results.Add(new ProcessInfo
                         {
                             Id          = proc.Id,
                             Name        = proc.ProcessName,
-                            Description = iconLabel,
+                            Description = proc.ProcessName, // fallback; enriquecido abaixo
                             MemoryMb    = memMb,
-                            CpuPercent  = cpuPercent,
-                            StartTime   = SafeGetStartTime(proc)
+                            CpuPercent  = cpuPercent
                         });
+                        byId[proc.Id] = proc;
                     }
                     catch { /* Processos protegidos (System, smss, etc.) — ignora */ }
+                }
+
+                // ── Enriquecimento caro APENAS para o top N (por RAM) ────────────
+                foreach (var info in results.OrderByDescending(p => p.MemoryMb).Take(topN))
+                {
+                    if (!byId.TryGetValue(info.Id, out var proc)) continue;
+
+                    string exePath = SafeGetExecutablePath(proc);
+                    info.Description = ResolveProcessLabel(info.Name, GetFileDescription(exePath));
+                    info.StartTime = SafeGetStartTime(proc);
                 }
 
                 return results.ToArray();
