@@ -27,6 +27,17 @@ namespace AfkNotifier
             _smtpPass = Env("AFK_SMTP_PASS", "");
             _fromAddress = Env("AFK_FROM_ADDRESS", _smtpUser);
             _toAddress = Env("AFK_EMAIL_TO", "");
+
+            _log.Info($"Config e-mail: host={_smtpHost}:{_smtpPort} user={Mask(_smtpUser)} " +
+                      $"to={Mask(_toAddress)} pass={(string.IsNullOrEmpty(_smtpPass) ? "VAZIA" : "definida")}");
+        }
+
+        private static string Mask(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return "VAZIO";
+            int at = value.IndexOf('@');
+            if (at > 1) return value.Substring(0, 2) + "***" + value.Substring(at);
+            return value.Substring(0, 1) + "***";
         }
 
         public void SendAfkAlert(AfkSnapshot snapshot)
@@ -60,13 +71,15 @@ namespace AfkNotifier
         {
             try
             {
-                using var client = new SmtpClient(_smtpHost, _smtpPort)
-                {
-                    Credentials = new NetworkCredential(_smtpUser, _smtpPass),
-                    EnableSsl = true,
-                    DeliveryMethod = SmtpDeliveryMethod.Network,
-                    Timeout = 10_000
-                };
+                using var client = new SmtpClient(_smtpHost, _smtpPort);
+
+                // A ordem importa: UseDefaultCredentials tem de ser definido
+                // ANTES de Credentials, senão as credenciais são ignoradas.
+                client.UseDefaultCredentials = false;
+                client.Credentials = new NetworkCredential(_smtpUser, _smtpPass);
+                client.EnableSsl = true; // STARTTLS na porta 587
+                client.DeliveryMethod = SmtpDeliveryMethod.Network;
+                client.Timeout = 20_000;
 
                 using var message = new MailMessage(_fromAddress, _toAddress, subject, htmlBody)
                 {
@@ -77,11 +90,19 @@ namespace AfkNotifier
                 client.Send(message);
                 _log.Info($"E-mail enviado para {_toAddress}: {subject}");
             }
+            catch (SmtpException ex)
+            {
+                _log.Error($"Falha SMTP ({ex.StatusCode}): {Flatten(ex.Message)}" +
+                           (ex.InnerException != null ? $" | inner: {Flatten(ex.InnerException.Message)}" : ""));
+            }
             catch (Exception ex)
             {
-                _log.Error($"Falha ao enviar e-mail: {ex.Message}");
+                _log.Error($"Falha ao enviar e-mail: {Flatten(ex.Message)}");
             }
         }
+
+        private static string Flatten(string s) =>
+            (s ?? "").Replace("\r", " ").Replace("\n", " ").Trim();
 
         private static string BuildHtmlBody(AfkSnapshot snap)
         {

@@ -41,8 +41,17 @@ namespace AfkNotifier
             {
                 while (true)
                 {
-                    TimeSpan inactiveTime = _idleMonitor.GetInactivityTime();
-                    Check(inactiveTime);
+                    try
+                    {
+                        TimeSpan inactiveTime = _idleMonitor.GetInactivityTime();
+                        Check(inactiveTime);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Nunca deixar uma exceção matar o loop de monitorização
+                        _log.Error($"Erro no ciclo de verificação: {ex.Message}");
+                    }
+
                     Thread.Sleep(_checkInterval);
                 }
             });
