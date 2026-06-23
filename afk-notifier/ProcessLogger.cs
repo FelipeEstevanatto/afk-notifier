@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 
 namespace AfkNotifier
 {
@@ -23,8 +24,8 @@ namespace AfkNotifier
         [DllImport("user32.dll", SetLastError = true)]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
-        private readonly Dictionary<int, (long cpu, DateTime stamp)> _prevCpu
-            = new Dictionary<int, (long, DateTime)>();
+        // Intervalo entre as duas amostras de CPU (quanto maior, mais estável)
+        private const int CpuSampleMs = 750;
 
         public ProcessLogger(LogService log)
         {
@@ -70,7 +71,13 @@ namespace AfkNotifier
                     : ctx.ForegroundWindowTitle;
 
                 ctx.ForegroundExecutablePath = SafeGetExecutablePath(proc);
-                ctx.ForegroundProcessDescription = GetFileDescription(ctx.ForegroundExecutablePath);
+                ctx.ForegroundProcessDescription = ResolveProcessLabel(
+                    proc.ProcessName,
+                    GetFileDescription(ctx.ForegroundExecutablePath));
+
+                // Processos elevados (ex.: CPU-Z) não expõem o caminho a um app não-admin
+                if (string.IsNullOrEmpty(ctx.ForegroundExecutablePath))
+                    ctx.ForegroundExecutablePath = "(indisponível — processo elevado/protegido)";
             }
             catch (Exception ex)
             {
@@ -82,60 +89,73 @@ namespace AfkNotifier
 
         private ProcessInfo[] CaptureTopProcesses(int topN)
         {
-            var results = new List<ProcessInfo>();
-
-            // Snapshot de CPU antes (segunda chamada calcula delta)
             var allProcs = Process.GetProcesses();
 
-            foreach (var proc in allProcs)
+            try
             {
-                try
+                // ── 1ª amostra: tempo de CPU acumulado de cada processo ──────────
+                var baseline = new Dictionary<int, (long cpu, DateTime stamp)>();
+                foreach (var proc in allProcs)
                 {
-                    long   cpuTicks   = proc.TotalProcessorTime.Ticks;
-                    double memMb      = proc.WorkingSet64 / 1_048_576.0;
-                    double cpuPercent = 0;
+                    try { baseline[proc.Id] = (proc.TotalProcessorTime.Ticks, DateTime.UtcNow); }
+                    catch { /* processo protegido — ignora */ }
+                }
 
-                    // Calcula delta de CPU em relação à medição anterior
-                    if (_prevCpu.TryGetValue(proc.Id, out var prev))
+                // Espera curta entre as duas amostras
+                Thread.Sleep(CpuSampleMs);
+
+                // ── 2ª amostra: calcula o delta (uso real de CPU no intervalo) ───
+                int cores = Environment.ProcessorCount;
+                var results = new List<ProcessInfo>();
+
+                foreach (var proc in allProcs)
+                {
+                    try
                     {
-                        double elapsed = (DateTime.UtcNow - prev.stamp).TotalSeconds;
-                        if (elapsed > 0)
+                        proc.Refresh(); // garante valores atualizados após o Sleep
+
+                        double memMb      = proc.WorkingSet64 / 1_048_576.0;
+                        double cpuPercent = 0;
+                        long   cpuTicks   = proc.TotalProcessorTime.Ticks;
+
+                        if (baseline.TryGetValue(proc.Id, out var prev))
                         {
-                            double deltaTicks = cpuTicks - prev.cpu;
-                            // Normaliza para porcentagem por núcleo
-                            int cores = Environment.ProcessorCount;
-                            cpuPercent = deltaTicks / (TimeSpan.TicksPerSecond * elapsed * cores) * 100.0;
-                            cpuPercent = Math.Max(0, Math.Min(100, cpuPercent));
+                            double elapsed = (DateTime.UtcNow - prev.stamp).TotalSeconds;
+                            if (elapsed > 0)
+                            {
+                                double deltaTicks = cpuTicks - prev.cpu;
+                                // Normaliza pelo nº de núcleos: 100% = todos os núcleos saturados
+                                cpuPercent = deltaTicks / (TimeSpan.TicksPerSecond * elapsed * cores) * 100.0;
+                                cpuPercent = Math.Max(0, Math.Min(100, cpuPercent));
+                            }
                         }
+
+                        string exePath   = SafeGetExecutablePath(proc);
+                        string desc      = GetFileDescription(exePath);
+                        string iconLabel = ResolveProcessLabel(proc.ProcessName, desc);
+
+                        results.Add(new ProcessInfo
+                        {
+                            Name        = proc.ProcessName,
+                            Description = iconLabel,
+                            MemoryMb    = memMb,
+                            CpuPercent  = cpuPercent,
+                            StartTime   = SafeGetStartTime(proc)
+                        });
                     }
-
-                    _prevCpu[proc.Id] = (cpuTicks, DateTime.UtcNow);
-
-                    string exePath   = SafeGetExecutablePath(proc);
-                    string desc      = GetFileDescription(exePath);
-                    string iconLabel = ResolveProcessLabel(proc.ProcessName, desc);
-
-                    results.Add(new ProcessInfo
-                    {
-                        Name        = proc.ProcessName,
-                        Description = iconLabel,
-                        MemoryMb    = memMb,
-                        CpuPercent  = cpuPercent,
-                        StartTime   = SafeGetStartTime(proc)
-                    });
+                    catch { /* Processos protegidos (System, smss, etc.) — ignora */ }
                 }
-                catch { /* Processos protegidos (System, smss, etc.) — ignora */ }
-                finally
-                {
-                    proc.Dispose();
-                }
+
+                // Ordena por RAM decrescente e retorna os top N
+                return results
+                    .OrderByDescending(p => p.MemoryMb)
+                    .Take(topN)
+                    .ToArray();
             }
-
-            // Ordena por RAM decrescente e retorna os top N
-            return results
-                .OrderByDescending(p => p.MemoryMb)
-                .Take(topN)
-                .ToArray();
+            finally
+            {
+                foreach (var proc in allProcs) proc.Dispose();
+            }
         }
 
         
