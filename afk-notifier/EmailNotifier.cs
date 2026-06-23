@@ -3,6 +3,7 @@ using System.IO;
 using System.Net;
 using System.Net.Mail;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace AfkNotifier
 {
@@ -50,6 +51,13 @@ namespace AfkNotifier
                 return;
             }
 
+            // O envio SMTP roda numa thread separada (fire-and-forget) para não
+            // bloquear o loop de monitorização de inatividade durante a conexão.
+            _ = Task.Run(() => SendInternal(subject, htmlBody));
+        }
+
+        private void SendInternal(string subject, string htmlBody)
+        {
             try
             {
                 using var client = new SmtpClient(_smtpHost, _smtpPort)
@@ -126,16 +134,21 @@ namespace AfkNotifier
         private static string BuildProcessRows(ProcessInfo[] procs)
         {
             if (procs == null || procs.Length == 0)
-                return "<tr><td colspan=\"5\" style=\"color:#9ca3af;\">Nenhum processo capturado.</td></tr>";
+                return "<tr><td colspan=\"6\" style=\"color:#9ca3af;\">Nenhum processo capturado.</td></tr>";
 
             var sb = new StringBuilder();
             for (int i = 0; i < procs.Length; i++)
             {
                 var p = procs[i];
+                string since = p.StartTime.HasValue
+                    ? p.StartTime.Value.ToString("dd/MM HH:mm")
+                    : "n/d";
+
                 sb.AppendLine($@"<tr>
   <td style=""color:#9ca3af;"">{i + 1}</td>
   <td><span style=""display:inline-block;width:8px;height:8px;border-radius:50%;background:#0f62fe;margin-right:8px;""></span>{WebEncode(p.Name)}</td>
   <td style=""color:#6b7280;"">{WebEncode(p.Description)}</td>
+  <td style=""color:#6b7280;"">{since}</td>
   <td style=""text-align:right;"">{p.CpuPercent:F1}</td>
   <td style=""text-align:right;"">{p.MemoryMb:F0}</td>
 </tr>");
@@ -179,5 +192,8 @@ namespace AfkNotifier
         public string Description { get; set; } = "";
         public double CpuPercent { get; set; }
         public double MemoryMb { get; set; }
+
+        /// <summary>Momento em que o processo foi iniciado (desde quando está aberto).</summary>
+        public DateTime? StartTime { get; set; }
     }
 }

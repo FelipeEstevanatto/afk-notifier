@@ -120,7 +120,8 @@ namespace AfkNotifier
                         Name        = proc.ProcessName,
                         Description = iconLabel,
                         MemoryMb    = memMb,
-                        CpuPercent  = cpuPercent
+                        CpuPercent  = cpuPercent,
+                        StartTime   = SafeGetStartTime(proc)
                     });
                 }
                 catch { /* Processos protegidos (System, smss, etc.) — ignora */ }
@@ -143,6 +144,61 @@ namespace AfkNotifier
             try { return proc.MainModule?.FileName ?? ""; }
             catch { return ""; }
         }
+
+        private static DateTime? SafeGetStartTime(Process proc)
+        {
+            try { return proc.StartTime; }
+            catch { return null; } // processos protegidos não expõem StartTime
+        }
+
+        /// <summary>
+        /// Grava num ficheiro de log dedicado quais programas estão abertos
+        /// e desde quando (start time + tempo de atividade).
+        /// </summary>
+        public void LogOpenProcesses(ProcessInfo[] processes)
+        {
+            const string ProcLogFile = "logs/processos-log.txt";
+
+            try
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine($"===== Captura em {DateTime.Now:yyyy-MM-dd HH:mm:ss} =====");
+                sb.AppendLine($"{"Processo",-28}{"Aberto desde",-22}{"Há",-14}{"RAM (MB)",10}");
+                sb.AppendLine(new string('-', 74));
+
+                foreach (var p in processes)
+                {
+                    string since   = p.StartTime.HasValue
+                        ? p.StartTime.Value.ToString("dd/MM/yyyy HH:mm:ss")
+                        : "n/d";
+                    string uptime  = p.StartTime.HasValue
+                        ? FormatUptime(DateTime.Now - p.StartTime.Value)
+                        : "n/d";
+
+                    sb.AppendLine($"{Trunc(p.Name, 27),-28}{since,-22}{uptime,-14}{p.MemoryMb,10:F0}");
+                }
+
+                sb.AppendLine();
+                File.AppendAllText(ProcLogFile, sb.ToString());
+
+                _log.Info($"Log de processos atualizado ({processes.Length} processos).");
+            }
+            catch (Exception ex)
+            {
+                _log.Error($"Falha ao gravar log de processos: {ex.Message}");
+            }
+        }
+
+        private static string FormatUptime(TimeSpan ts)
+        {
+            if (ts.TotalDays >= 1) return $"{(int)ts.TotalDays}d {ts.Hours:D2}h";
+            if (ts.TotalHours >= 1) return $"{(int)ts.TotalHours}h {ts.Minutes:D2}m";
+            if (ts.TotalMinutes >= 1) return $"{(int)ts.TotalMinutes}m {ts.Seconds:D2}s";
+            return $"{ts.Seconds}s";
+        }
+
+        private static string Trunc(string s, int max) =>
+            s != null && s.Length > max ? s.Substring(0, max) : (s ?? "");
 
        
         private static string GetFileDescription(string exePath)

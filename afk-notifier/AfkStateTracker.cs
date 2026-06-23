@@ -9,6 +9,7 @@ namespace AfkNotifier
         private readonly IdleMonitor _idleMonitor;
         private readonly EmailNotifier _emailNotifier;
         private readonly ProcessLogger _processLogger;
+        private readonly AlertService _alertService;
         private readonly LogService _log;
 
         private readonly TimeSpan _inactivityLimit;
@@ -18,11 +19,12 @@ namespace AfkNotifier
         private DateTime? _afkStart = null;
         private AfkSnapshot _lastSnapshot = null;
 
-        public AfkStateTracker(IdleMonitor idleMonitor, EmailNotifier emailNotifier, ProcessLogger processLogger, LogService log)
+        public AfkStateTracker(IdleMonitor idleMonitor, EmailNotifier emailNotifier, ProcessLogger processLogger, AlertService alertService, LogService log)
         {
             _idleMonitor = idleMonitor;
             _emailNotifier = emailNotifier;
             _processLogger = processLogger;
+            _alertService = alertService;
             _log = log;
 
             // Busca o limite no .env. Se não existir, assume 30 segundos por defeito.
@@ -58,6 +60,9 @@ namespace AfkNotifier
 
                 var context = _processLogger.CaptureContext(topN: 10);
 
+                // Regista no log dedicado quais programas estão abertos e desde quando
+                _processLogger.LogOpenProcesses(context.TopProcesses);
+
                 _lastSnapshot = new AfkSnapshot
                 {
                     DetectedAt = _afkStart.Value,
@@ -67,6 +72,9 @@ namespace AfkNotifier
                     LastExecutablePath = context.ForegroundExecutablePath,
                     TopProcesses = context.TopProcesses
                 };
+
+                // Aviso local imediato (som + mensagem na tela)
+                _alertService.ShowAfkAlert(inactiveTime);
 
                 _emailNotifier.SendAfkAlert(_lastSnapshot);
             }

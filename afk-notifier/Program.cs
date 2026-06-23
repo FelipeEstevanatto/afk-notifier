@@ -9,6 +9,9 @@ namespace AfkNotifier
         [STAThread]
         static void Main()
         {
+            System.Windows.Forms.Application.EnableVisualStyles();
+            System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
+
             // Carrega as variáveis do ficheiro .env
             EnvLoader.Load(".env");
 
@@ -18,7 +21,8 @@ namespace AfkNotifier
             var idleMonitor = new IdleMonitor(nativeMethods, logService);
             var processLogger = new ProcessLogger(logService);
             var emailNotifier = new EmailNotifier(logService);
-            var stateTracker = new AfkStateTracker(idleMonitor, emailNotifier, processLogger, logService);
+            var alertService = new AlertService(logService);
+            var stateTracker = new AfkStateTracker(idleMonitor, emailNotifier, processLogger, alertService, logService);
 
             stateTracker.Start();
             
