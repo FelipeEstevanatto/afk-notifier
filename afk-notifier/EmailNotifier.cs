@@ -120,8 +120,9 @@ namespace AfkNotifier
             return html
                 .Replace("{{DetectedAt}}", snap.DetectedAt.ToString("dd/MM/yyyy 'às' HH:mm:ss"))
                 .Replace("{{Duration}}", duration)
-                .Replace("{{MachineName}}", Truncate(snap.MachineName, 12))
-                .Replace("{{UserName}}", Truncate(snap.UserName, 12))
+                .Replace("{{MachineName}}", WebEncode(snap.MachineName))
+                .Replace("{{MachineModel}}", WebEncode(string.IsNullOrEmpty(snap.MachineModel) ? "—" : snap.MachineModel))
+                .Replace("{{UserName}}", WebEncode(snap.UserName))
                 .Replace("{{LastForegroundProcess}}", snap.LastForegroundProcess)
                 .Replace("{{LastWindowTitle}}", snap.LastWindowTitle)
                 .Replace("{{LastExecutablePath}}", snap.LastExecutablePath)
@@ -184,9 +185,6 @@ namespace AfkNotifier
             return $"{ts.Seconds}s";
         }
 
-        private static string Truncate(string s, int max) =>
-            s != null && s.Length > max ? s.Substring(0, max) + "…" : (s ?? "");
-
         private static string WebEncode(string s) =>
             System.Net.WebUtility.HtmlEncode(s ?? "");
 
@@ -197,6 +195,7 @@ namespace AfkNotifier
     internal class AfkSnapshot
     {
         public string MachineName { get; set; } = Environment.MachineName;
+        public string MachineModel { get; set; } = SystemInfo.GetMachineModel();
         public string UserName { get; set; } = Environment.UserName;
         public DateTime DetectedAt { get; set; } = DateTime.Now;
         public DateTime ReturnedAt { get; set; }

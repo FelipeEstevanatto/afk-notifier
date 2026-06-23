@@ -8,7 +8,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: #f4f5f7;
             margin: 0;
-            padding: 32px 16px;
+            padding: 24px 8px;
             color: #1a1a2e;
         }
 
@@ -23,7 +23,7 @@
 
         .header {
             background: #16213e;
-            padding: 28px 32px;
+            padding: 24px 20px;
         }
 
             .header h1 {
@@ -52,7 +52,13 @@
         }
 
         .body {
-            padding: 28px 32px;
+            padding: 24px 20px;
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
         }
 
         .kpi-grid {
@@ -78,9 +84,20 @@
         }
 
         .kpi-value {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 700;
             color: #1a1a2e;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+
+        .kpi-sub {
+            font-size: 12px;
+            font-weight: 500;
+            color: #6b7280;
+            margin-top: 3px;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
 
         h2 {
@@ -131,7 +148,7 @@
 
         .footer {
             background: #f8f9fc;
-            padding: 16px 32px;
+            padding: 16px 20px;
             text-align: center;
             font-size: 11px;
             color: #9ca3af;
@@ -161,6 +178,7 @@
                 <div class="kpi">
                     <div class="kpi-label">Máquina</div>
                     <div class="kpi-value">{{MachineName}}</div>
+                    <div class="kpi-sub">{{MachineModel}}</div>
                 </div>
                 <div class="kpi">
                     <div class="kpi-label">Usuário</div>
@@ -169,32 +187,36 @@
             </div>
 
             <h2>Última janela ativa</h2>
-            <table>
-                <tr>
-                    <th>Processo</th>
-                    <th>Título da janela</th>
-                    <th>Executável</th>
-                </tr>
-                <tr>
-                    <td><span class="proc-icon"></span>{{LastForegroundProcess}}</td>
-                    <td>{{LastWindowTitle}}</td>
-                    <td style="font-family:monospace;font-size:12px;">{{LastExecutablePath}}</td>
-                </tr>
-            </table>
+            <div class="table-scroll">
+                <table style="white-space:nowrap;min-width:520px;">
+                    <tr>
+                        <th>Processo</th>
+                        <th>Título da janela</th>
+                        <th>Executável</th>
+                    </tr>
+                    <tr>
+                        <td><span class="proc-icon"></span>{{LastForegroundProcess}}</td>
+                        <td>{{LastWindowTitle}}</td>
+                        <td style="font-family:monospace;font-size:12px;">{{LastExecutablePath}}</td>
+                    </tr>
+                </table>
+            </div>
 
             <br>
             <h2>Processos em execução (top {{TopCount}})</h2>
-            <table>
-                <tr>
-                    <th>#</th>
-                    <th>Processo</th>
-                    <th>Descrição</th>
-                    <th>Aberto desde</th>
-                    <th>CPU %</th>
-                    <th>RAM (MB)</th>
-                </tr>
-                {{TopProcesses}}
-            </table>
+            <div class="table-scroll">
+                <table style="white-space:nowrap;min-width:520px;">
+                    <tr>
+                        <th>#</th>
+                        <th>Processo</th>
+                        <th>Descrição</th>
+                        <th>Aberto desde</th>
+                        <th>CPU %</th>
+                        <th>RAM (MB)</th>
+                    </tr>
+                    {{TopProcesses}}
+                </table>
+            </div>
         </div>
 
         <div class="footer">
