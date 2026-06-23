@@ -13,7 +13,7 @@ namespace AfkNotifier
         private readonly LogService _log;
 
         private readonly TimeSpan _inactivityLimit;
-        private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(5);
+        private readonly TimeSpan _checkInterval;
 
         private bool _wasAfk = false;
         private DateTime? _afkStart = null;
@@ -30,6 +30,11 @@ namespace AfkNotifier
             // Busca o limite no .env. Se não existir, assume 30 segundos por defeito.
             int limitSeconds = int.Parse(Environment.GetEnvironmentVariable("AFK_LIMIT_SECONDS") ?? "30");
             _inactivityLimit = TimeSpan.FromSeconds(limitSeconds);
+
+            // Intervalo de verificação (ms). Quanto menor, mais perto do limite
+            // exato o aviso é disparado. Default: 1000 ms (1 segundo).
+            int checkIntervalMs = int.Parse(Environment.GetEnvironmentVariable("AFK_CHECK_INTERVAL_MS") ?? "1000");
+            _checkInterval = TimeSpan.FromMilliseconds(Math.Max(100, checkIntervalMs));
         }
 
         public void Start()
