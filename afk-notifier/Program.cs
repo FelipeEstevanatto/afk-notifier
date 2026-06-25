@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Threading;
 
 namespace AfkNotifier
 {
@@ -31,8 +30,11 @@ namespace AfkNotifier
             var stateTracker = new AfkStateTracker(idleMonitor, emailNotifier, processLogger, alertService, logService);
 
             stateTracker.Start();
-            
-            Thread.Sleep(Timeout.Infinite);
+
+            // Janela message-only que recebe o atalho global de encerramento
+            // (Ctrl+Shift+K). O message loop mantém o programa vivo até Application.Exit.
+            using var hotkeyService = new HotkeyService(logService);
+            System.Windows.Forms.Application.Run();
         }
     }
 

@@ -23,6 +23,7 @@ namespace AfkNotifier
         // Tipos de ícone/botões aceites por MessageBox (dwType)
         internal const uint MB_OK = 0x00000000;
         internal const uint MB_ICONWARNING = 0x00000030;
+        internal const uint MB_ICONINFORMATION = 0x00000040;
         internal const uint MB_TOPMOST = 0x00040000;
         internal const uint MB_SETFOREGROUND = 0x00010000;
 
@@ -34,6 +35,22 @@ namespace AfkNotifier
 
         [DllImport("user32.dll", SetLastError = true)]
         internal static extern bool MessageBeep(uint uType);
+
+        // ── Atalho global de teclado para encerrar o programa (user32.dll) ────
+        // RegisterHotKey apenas notifica quando a combinação específica é
+        // pressionada — NÃO captura outras teclas (uso ético, sem keylogging).
+
+        internal const uint MOD_CONTROL = 0x0002;
+        internal const uint MOD_SHIFT = 0x0004;
+        internal const uint MOD_NOREPEAT = 0x4000;
+        internal const uint VK_K = 0x4B;
+        internal const int WM_HOTKEY = 0x0312;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        internal static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        internal static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
         // ── Forçar a janela de aviso para o primeiro plano ────────────────────
         // Um processo em segundo plano não consegue "roubar" o foco diretamente
